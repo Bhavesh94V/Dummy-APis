@@ -1,24 +1,62 @@
-// server.js
 const express = require('express');
 const app = express();
 const PORT = 5000;
+const http = require('http');
+const cors = require('cors');
+const socketIo = require('socket.io');
 
 // Middleware
 app.use(express.json());
+app.use(cors());
 
-// 1. Dashboard Summary
+const server = http.createServer(app);
+const io = socketIo(server, { cors: { origin: '*' } });
+
+// Dummy Driver Data for Real-time Updates
+let drivers = [
+    { id: 'DR001', name: 'Rajesh Kumar', vehicle: 'Honda City - DL-01-AB-1234', lat: 28.6139, lng: 77.2090, location: 'Connaught Place, Delhi', status: 'En Route', eta: 8 },
+    { id: 'DR002', name: 'Amit Singh', vehicle: 'Royal Enfield - DL-02-CD-5678', lat: 28.5355, lng: 77.3910, location: 'Sector 18, Noida', status: 'Pickup', eta: 12 },
+    { id: 'DR003', name: 'Ravi Verma', vehicle: 'Hyundai Creta - DL-04-EF-9999', lat: 28.7041, lng: 77.1025, location: 'Rohini, Delhi', status: 'En Route', eta: 15 }
+];
+
+// Emit live location every 5 seconds
+setInterval(() => {
+    // Simulate location changes and ETA updates
+    drivers = drivers.map(driver => {
+        return {
+            ...driver,
+            lat: driver.lat + (Math.random() - 0.5) * 0.002,
+            lng: driver.lng + (Math.random() - 0.5) * 0.002,
+            eta: Math.max(1, driver.eta - 1)
+        };
+    });
+    io.emit('liveLocationUpdate', drivers);
+}, 5000);
+
+// REST API Routes
+app.get('/api/live-tracking/drivers', (req, res) => {
+    res.json(drivers);
+});
+
 app.get('/api/summary/metrics', (req, res) => {
     res.json({
-        totalRevenue: 125670,
-        commissionEarned: 12567,
-        totalPayouts: 89340,
-        pendingPayments: 23,
-        totalUsers: 5800,
-        totalDrivers: 1100
+        todaysRides: 1247,
+        totalDrivers: 342,
+        todaysIncome: 45670,
+        completedRides: 1189,
+        cancelledRides: 58
     });
 });
 
-// 2. Fleet Management
+app.get('/api/rides', (req, res) => {
+    res.json([
+        { id: 'RD001', user: 'John Doe', fare: 250, status: 'Completed', type: 'Ride', time: '2 mins ago' },
+        { id: 'RD002', user: 'Sarah Khan', fare: 180, status: 'In Progress', type: 'Food', time: '5 mins ago' },
+        { id: 'RD003', user: 'Ajay Meena', fare: 130, status: 'Cancelled', type: 'Courier', time: '10 mins ago' }
+    ]);
+});
+
+// Additional static endpoints already provided by you
 app.get('/api/fleet/list', (req, res) => {
     res.json([
         { id: 'VH001', model: 'Toyota Innova', status: 'Available', lastService: '2024-05-10' },
@@ -29,18 +67,6 @@ app.get('/api/fleet/list', (req, res) => {
     ]);
 });
 
-// 3. Live Tracking
-app.get('/api/vehicles/locations', (req, res) => {
-    res.json([
-        { vehicleId: 'VH001', lat: 28.6139, lng: 77.2090 },
-        { vehicleId: 'VH002', lat: 28.6448, lng: 77.2167 },
-        { vehicleId: 'VH003', lat: 28.5355, lng: 77.3910 },
-        { vehicleId: 'VH004', lat: 28.4089, lng: 77.3178 },
-        { vehicleId: 'VH005', lat: 28.7041, lng: 77.1025 }
-    ]);
-});
-
-// 4. Complaints
 app.get('/api/complaints', (req, res) => {
     res.json([
         { id: 'CMP001', user: 'John Doe', issue: 'Late driver', status: 'Open' },
@@ -51,18 +77,6 @@ app.get('/api/complaints', (req, res) => {
     ]);
 });
 
-// 5. Rides Management
-app.get('/api/rides', (req, res) => {
-    res.json([
-        { id: 'RD001', user: 'John Doe', driver: 'Driver A', fare: 230, status: 'Completed' },
-        { id: 'RD002', user: 'Jane Smith', driver: 'Driver B', fare: 180, status: 'Ongoing' },
-        { id: 'RD003', user: 'Riya Jain', driver: 'Driver C', fare: 300, status: 'Cancelled' },
-        { id: 'RD004', user: 'Amit Raj', driver: 'Driver D', fare: 250, status: 'Completed' },
-        { id: 'RD005', user: 'Rahul Sinha', driver: 'Driver E', fare: 210, status: 'Ongoing' }
-    ]);
-});
-
-// 6. User Management
 app.get('/api/users', (req, res) => {
     res.json([
         { id: 'USR001', name: 'John Doe', role: 'Customer', status: 'Active' },
@@ -73,7 +87,6 @@ app.get('/api/users', (req, res) => {
     ]);
 });
 
-// 7. Payments
 app.get('/api/payments', (req, res) => {
     res.json([
         { id: 'PAY001', user: 'John Doe', amount: 450, commission: 45, status: 'Completed', method: 'UPI' },
@@ -84,7 +97,6 @@ app.get('/api/payments', (req, res) => {
     ]);
 });
 
-// 8. Analytics Report
 app.get('/api/analytics/earnings', (req, res) => {
     res.json({
         totalEarnings: 328000,
@@ -106,7 +118,6 @@ app.get('/api/analytics/hourly', (req, res) => {
     ]);
 });
 
-// 9. Settings
 app.get('/api/settings', (req, res) => {
     res.json({
         siteName: 'IdharUdhar Admin Panel',
@@ -118,6 +129,6 @@ app.get('/api/settings', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
-    console.log(`Dummy API Server running on http://localhost:${PORT}`);
+server.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
 });
